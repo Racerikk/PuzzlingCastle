@@ -17,7 +17,11 @@ public class PlayerController : MonoBehaviour
     float afkTimerValue = 2f;
     float afkTimer = 2f;
     float sphereradius = .05f;
+    Vector3 cameraParentLocalPosOrg;
     Vector3 cameraParentPosOrg;
+    Tween moveTween;
+    Tween afkTween;
+    bool isMoving = false;
     void Start()
     {
         rb = GetComponent<Rigidbody>();
@@ -28,6 +32,7 @@ public class PlayerController : MonoBehaviour
         xRot = cameraParent.localEulerAngles.x;
 
         Cursor.lockState = CursorLockMode.Locked;
+        cameraParentLocalPosOrg = cameraParent.localPosition;
         cameraParentPosOrg = cameraParent.position;
     }
 
@@ -43,21 +48,37 @@ public class PlayerController : MonoBehaviour
         movement.x = dir.x * speed;
         movement.z = dir.z * speed;
         rb.linearVelocity = movement;
+        LookWithSway();
         if(movementV2 != Vector2.zero)
         {
+            if (!isMoving)
+            {
+                moveTween = cameraParent.DOPunchPosition(Vector3.up * Random.Range(0.15f, 0.25f), 1.25f, 2, default, false).SetLoops(-1).SetEase(Ease.OutSine).Play();
+                Debug.Log("Started Moving Camera: " + moveTween.IsPlaying());
+                isMoving = true;
+            }
             NotAFK();
+        }else
+        {
+            if (moveTween.IsActive())
+            {
+                moveTween.Kill();
+                //cameraParent.localPosition = cameraParentLocalPosOrg;
+                cameraParent.DOLocalMove(cameraParentLocalPosOrg, 0.25f).SetEase(Ease.OutSine);
+                Debug.Log("Moved camera to org pos: " + cameraParentLocalPosOrg);
+            }
+            isMoving = false;
         }
-        
-        LookWithSway();
+
     }
     void LookWithSway()
     {
         afkTimer -= Time.deltaTime;
         if (HandleLook() == Vector2.zero)
         {
-            if (!DOTween.IsTweening(cameraParent) && afkTimer < 0){
+            if (!afkTween.IsActive() && afkTimer < 0){
                 Vector3 targetPosition = cameraParentPosOrg + Random.insideUnitSphere * sphereradius;
-                cameraParent.DOMove(new(targetPosition.x,targetPosition.y,cameraParent.position.z), 2f).SetEase(Ease.Linear);
+                afkTween = cameraParent.DOMove(new(targetPosition.x,targetPosition.y,cameraParent.position.z), 2f).SetEase(Ease.Linear);
             }
         }
         else
@@ -68,9 +89,7 @@ public class PlayerController : MonoBehaviour
     }
     void NotAFK()
     {
-        if(afkTimer < 0)
-            cameraParent.position = cameraParentPosOrg;
-        cameraParent.DOKill();
+        afkTween.Kill();
         transform.DOKill();
         afkTimer = afkTimerValue;
         cameraParentPosOrg = cameraParent.position;
