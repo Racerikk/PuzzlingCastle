@@ -9,6 +9,7 @@ public class PlayerController : MonoBehaviour
     Rigidbody rb;
 
     [SerializeField] Transform cameraParent;
+    [SerializeField] Transform interactionPoint;
     [SerializeField] float speed = 5f;
     [SerializeField] float xSensitivity = 1f;
     [SerializeField] float ySensitivity = 1f;
@@ -42,14 +43,43 @@ public class PlayerController : MonoBehaviour
         {
             return;
         }
+        InteractCheck();
+        LookWithSway();
+        HeadBob();
+
+    }
+    void InteractCheck()
+    {
+        Collider[] collider = Physics.OverlapSphere(interactionPoint.position, 1f, LayerMask.GetMask("Interactable"));
+        foreach (Collider col in collider)
+        {
+            if (col.TryGetComponent<Interactable>(out var t))
+            {
+                t.Interact();
+            }
+        }
+    }
+    void FixedUpdate()
+    {
+        if (GameManager.IsGamePaused)
+        {
+            return;
+        }
+        Move();
+    }
+    Vector3 Move()
+    {
         Vector2 movementV2 = movementAction.ReadValue<Vector2>();
         Vector3 movement = new(movementV2.x, 0, movementV2.y);
         Vector3 dir = (transform.rotation * movement).normalized;
         movement.x = dir.x * speed;
         movement.z = dir.z * speed;
         rb.linearVelocity = movement;
-        LookWithSway();
-        if(movementV2 != Vector2.zero)
+        return movement;
+    }
+    void HeadBob()
+    {
+        if (movementAction.ReadValue<Vector2>() != Vector2.zero)
         {
             if (!isMoving)
             {
@@ -58,7 +88,8 @@ public class PlayerController : MonoBehaviour
                 isMoving = true;
             }
             NotAFK();
-        }else
+        }
+        else
         {
             if (moveTween.IsActive())
             {
@@ -69,7 +100,6 @@ public class PlayerController : MonoBehaviour
             }
             isMoving = false;
         }
-
     }
     void LookWithSway()
     {
@@ -97,7 +127,9 @@ public class PlayerController : MonoBehaviour
     void OnDrawGizmos()
     {
         Gizmos.color = Color.green;
-        Gizmos.DrawWireSphere(cameraParentPosOrg, sphereradius); 
+        Gizmos.DrawWireSphere(cameraParentPosOrg, sphereradius);
+        Gizmos.color = Color.rebeccaPurple;
+        Gizmos.DrawWireSphere(interactionPoint.position, 1f);
     }
     Vector2 HandleLook()
     {
